@@ -4,6 +4,7 @@
 #include <unwind.h>
 
 #include <stacktrace.h>
+#include <pthread.h>
 
 struct stack_trace_frame {
     void *addr;
@@ -29,6 +30,8 @@ struct stack_trace {
 
     size_t files_len;
     struct file_map *files;
+
+    unsigned skip;
 };
 
 static char *read_whole_file(char *fname) {
@@ -66,6 +69,12 @@ static char *read_whole_file(char *fname) {
 static _Unwind_Reason_Code collect(struct _Unwind_Context *ctx, void *p) {
     struct stack_trace *trace = p;
     struct stack_trace_frame frame;
+
+    if (trace->skip > 0) {
+        trace->skip--;
+        return _URC_NO_REASON;
+    }
+
     frame.addr = (void *)_Unwind_GetIP(ctx);
     frame.file = NULL;
     frame.func = NULL;
@@ -79,11 +88,12 @@ static _Unwind_Reason_Code collect(struct _Unwind_Context *ctx, void *p) {
     return _URC_NO_REASON;
 }
 
-struct stack_trace *stack_trace_get() {
+struct stack_trace *stack_trace_get(unsigned skip) {
     char procf[512];
     int len, n;
 
     struct stack_trace *trace = malloc(sizeof(struct stack_trace));
+    trace->skip = skip + 1;
     trace->maps = NULL;
     trace->exe = NULL;
 
@@ -214,7 +224,7 @@ static void _addr2line(struct stack_trace_frame *frame, struct file_map *file) {
     FILE *f;
     char cmd[1024];
     char line[1024];
-    snprintf(cmd, sizeof(cmd), "addr2line -f -e %s 0x%llx",
+    snprintf(cmd, sizeof(cmd), "addr2line -C -f -e %s 0x%llx",
             file->file, (unsigned long long)(file->offset + frame->addr));
     /*printf("CMD: %s\n", cmd);*/
     f = popen(cmd, "r");
@@ -269,4 +279,46 @@ void stack_trace_fprint(struct stack_trace *trace, FILE *f) {
         fprintf(f, "#%d %p - %s in %s:%d\n", i, frame->addr, 
                 frame->func ? frame->func : "??", frame->file ? frame->file : "??", frame->line);
     }
+}
+
+
+static pthread_once_t _stacktrace_once = PTHREAD_ONCE_INIT;
+static pthread_key_t _stacktrace_key;
+
+struct stacktrace_tls {
+    struct stack_trace *trace;
+};
+
+static void _stacktrace_tls_free(void *p) {
+    struct stacktrace_tls *tls = p;
+    free(tls->trace);
+    free(tls);
+}
+
+static void _stacktrace_key_create() {
+    pthread_key_create(&_stacktrace_key, _stacktrace_tls_free);
+}
+
+static struct stacktrace_tls *_stacktrace_get_tls() {
+    pthread_once(&_stacktrace_once, _stacktrace_key_create);
+    struct stacktrace_tls *tls = pthread_getspecific(_stacktrace_key);
+    if (tls == NULL) {
+        tls = malloc(sizeof(struct stacktrace_tls));
+        tls->trace = NULL;
+        pthread_setspecific(_stacktrace_key, tls);
+    }
+    return tls;
+}
+
+void _stack_trace_set_exc() {
+    struct stacktrace_tls *tls = _stacktrace_get_tls();
+    if (tls->trace != NULL) {
+        stack_trace_free(tls->trace);
+    }
+    tls->trace = stack_trace_get(2);
+}
+
+struct stack_trace *_stack_trace_get_exc() {
+    struct stacktrace_tls *tls = _stacktrace_get_tls();
+    return _stacktrace_get_tls()->trace;
 }

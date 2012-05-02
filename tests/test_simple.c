@@ -1,7 +1,7 @@
 #include <stacktrace.h>
 
 void bar () {
-    struct stack_trace *trace = stack_trace_get();
+    struct stack_trace *trace = stack_trace_get(0);
     stack_trace_print(trace);
     stack_trace_free(trace);
 }
