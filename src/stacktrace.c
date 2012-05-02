@@ -319,6 +319,5 @@ void _stacktrace_set_exc() {
 }
 
 struct stacktrace *_stacktrace_get_exc() {
-    struct stacktrace_tls *tls = _stacktrace_get_tls();
     return _stacktrace_get_tls()->trace;
 }
