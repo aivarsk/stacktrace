@@ -14,9 +14,9 @@ int main() {
     try {
         foo();
     } catch (...) {
-        struct stack_trace *trace = stack_trace_get_exc();
+        struct stacktrace *trace = stacktrace_get_exc();
         if (trace != NULL) {
-            stack_trace_print(trace);
+            stacktrace_print(trace);
         }
     }
     return 0;

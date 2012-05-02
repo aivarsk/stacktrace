@@ -6,7 +6,7 @@
 #include <stacktrace.h>
 #include <pthread.h>
 
-struct stack_trace_frame {
+struct stacktrace_frame {
     void *addr;
     char *file;
     char *func;
@@ -20,13 +20,13 @@ struct file_map {
     char *file;
 };
 
-struct stack_trace {
+struct stacktrace {
     char *exe;  /* Name of executable file */
     char *maps; /* Process memory map for this snapshot */
 
     size_t frames_size;
     size_t frames_len;
-    struct stack_trace_frame *frames;
+    struct stacktrace_frame *frames;
 
     size_t files_len;
     struct file_map *files;
@@ -67,8 +67,8 @@ static char *read_whole_file(char *fname) {
 }
 
 static _Unwind_Reason_Code collect(struct _Unwind_Context *ctx, void *p) {
-    struct stack_trace *trace = p;
-    struct stack_trace_frame frame;
+    struct stacktrace *trace = p;
+    struct stacktrace_frame frame;
 
     if (trace->skip > 0) {
         trace->skip--;
@@ -82,24 +82,24 @@ static _Unwind_Reason_Code collect(struct _Unwind_Context *ctx, void *p) {
 
     if (trace->frames_len == trace->frames_size) {
         trace->frames_size = trace->frames_size * 2;
-        trace->frames = realloc(trace->frames, sizeof(struct stack_trace_frame) * trace->frames_size);
+        trace->frames = realloc(trace->frames, sizeof(struct stacktrace_frame) * trace->frames_size);
     }
     trace->frames[trace->frames_len++] = frame;
     return _URC_NO_REASON;
 }
 
-struct stack_trace *stack_trace_get(unsigned skip) {
+struct stacktrace *stacktrace_get(unsigned skip) {
     char procf[512];
     int len, n;
 
-    struct stack_trace *trace = malloc(sizeof(struct stack_trace));
+    struct stacktrace *trace = malloc(sizeof(struct stacktrace));
     trace->skip = skip + 1;
     trace->maps = NULL;
     trace->exe = NULL;
 
     trace->frames_size = 128;
     trace->frames_len = 0;
-    trace->frames = malloc(sizeof(struct stack_trace_frame) * trace->frames_size);
+    trace->frames = malloc(sizeof(struct stacktrace_frame) * trace->frames_size);
 
     trace->files_len = 0;
     trace->files = NULL;
@@ -126,7 +126,7 @@ struct stack_trace *stack_trace_get(unsigned skip) {
     return trace;
 }
 
-void stack_trace_free(struct stack_trace *trace) {
+void stacktrace_free(struct stacktrace *trace) {
     if (trace != NULL) {
         free(trace->exe);
         free(trace->maps);
@@ -143,11 +143,11 @@ void stack_trace_free(struct stack_trace *trace) {
     }
 }
 
-void stack_trace_print(struct stack_trace *trace) {
-    stack_trace_fprint(trace, stdout);
+void stacktrace_print(struct stacktrace *trace) {
+    stacktrace_fprint(trace, stdout);
 }
 
-static void read_map(struct stack_trace *trace) {
+static void read_map(struct stacktrace *trace) {
     char *saveptr;
     char *line;
 
@@ -209,7 +209,7 @@ static void read_map(struct stack_trace *trace) {
     }
 }
 
-static struct file_map *_find_file(struct stack_trace *trace, unsigned long long addr) {
+static struct file_map *_find_file(struct stacktrace *trace, unsigned long long addr) {
     int i;
 
     for (i = 0; i < trace->files_len; i++) {
@@ -220,7 +220,7 @@ static struct file_map *_find_file(struct stack_trace *trace, unsigned long long
     return NULL;
 }
 
-static void _addr2line(struct stack_trace_frame *frame, struct file_map *file) {
+static void _addr2line(struct stacktrace_frame *frame, struct file_map *file) {
     FILE *f;
     char cmd[1024];
     char line[1024];
@@ -254,7 +254,7 @@ static void _addr2line(struct stack_trace_frame *frame, struct file_map *file) {
     pclose(f);
 }
 
-void stack_trace_resolve(struct stack_trace *trace) {
+void stacktrace_resolve(struct stacktrace *trace) {
     int i;
 
     read_map(trace);
@@ -269,13 +269,13 @@ void stack_trace_resolve(struct stack_trace *trace) {
     }
 }
 
-void stack_trace_fprint(struct stack_trace *trace, FILE *f) {
+void stacktrace_fprint(struct stacktrace *trace, FILE *f) {
     int i;
 
-    stack_trace_resolve(trace);
+    stacktrace_resolve(trace);
 
     for (i = 0; i < trace->frames_len; i++) {
-        struct stack_trace_frame *frame = &trace->frames[i];
+        struct stacktrace_frame *frame = &trace->frames[i];
         fprintf(f, "#%d %p - %s in %s:%d\n", i, frame->addr, 
                 frame->func ? frame->func : "??", frame->file ? frame->file : "??", frame->line);
     }
@@ -286,7 +286,7 @@ static pthread_once_t _stacktrace_once = PTHREAD_ONCE_INIT;
 static pthread_key_t _stacktrace_key;
 
 struct stacktrace_tls {
-    struct stack_trace *trace;
+    struct stacktrace *trace;
 };
 
 static void _stacktrace_tls_free(void *p) {
@@ -310,15 +310,15 @@ static struct stacktrace_tls *_stacktrace_get_tls() {
     return tls;
 }
 
-void _stack_trace_set_exc() {
+void _stacktrace_set_exc() {
     struct stacktrace_tls *tls = _stacktrace_get_tls();
     if (tls->trace != NULL) {
-        stack_trace_free(tls->trace);
+        stacktrace_free(tls->trace);
     }
-    tls->trace = stack_trace_get(2);
+    tls->trace = stacktrace_get(2);
 }
 
-struct stack_trace *_stack_trace_get_exc() {
+struct stacktrace *_stacktrace_get_exc() {
     struct stacktrace_tls *tls = _stacktrace_get_tls();
     return _stacktrace_get_tls()->trace;
 }

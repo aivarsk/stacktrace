@@ -7,17 +7,17 @@
 extern "C" {
 #endif
 
-struct stack_trace;
+struct stacktrace;
 
-struct stack_trace *stack_trace_get(unsigned skip);
-void stack_trace_resolve(struct stack_trace *st);
-void stack_trace_free(struct stack_trace *st);
+struct stacktrace *stacktrace_get(unsigned skip);
+void stacktrace_resolve(struct stacktrace *st);
+void stacktrace_free(struct stacktrace *st);
 
-void stack_trace_print(struct stack_trace *st);
-void stack_trace_fprint(struct stack_trace *st, FILE *);
+void stacktrace_print(struct stacktrace *st);
+void stacktrace_fprint(struct stacktrace *st, FILE *);
 
 #ifdef __cplusplus
-struct stack_trace *stack_trace_get_exc();
+struct stacktrace *stacktrace_get_exc();
 #endif
 
 #ifdef __cplusplus

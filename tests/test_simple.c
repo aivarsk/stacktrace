@@ -1,9 +1,9 @@
 #include <stacktrace.h>
 
 void bar () {
-    struct stack_trace *trace = stack_trace_get(0);
-    stack_trace_print(trace);
-    stack_trace_free(trace);
+    struct stacktrace *trace = stacktrace_get(0);
+    stacktrace_print(trace);
+    stacktrace_free(trace);
 }
 
 void foo() {
