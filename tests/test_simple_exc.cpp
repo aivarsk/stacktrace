@@ -17,6 +17,8 @@ int main() {
         struct stacktrace *trace = stacktrace_get_exc();
         if (trace != NULL) {
             stacktrace_print(trace);
+        } else {
+            printf("No exception backtrace\n");
         }
     }
     return 0;

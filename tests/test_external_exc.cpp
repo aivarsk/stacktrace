@@ -17,10 +17,10 @@ int main() {
     } catch (...) {
         struct stacktrace *trace = stacktrace_get_exc();
         if (trace != NULL) {
-            printf("No trace Reached\n");
             stacktrace_print(trace);
+        } else {
+            printf("No exception backtrace\n");
         }
-        printf("No trace\n");
     }
     return 0;
 }
